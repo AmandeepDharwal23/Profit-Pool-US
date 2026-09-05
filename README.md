@@ -139,7 +139,7 @@ To re-verify the CSV against its source spreadsheet, see
 ## Deploying the chart
 
 **GitHub Pages:** Settings → Pages → deploy from the `docs/` folder on
-`main`. The chart will be live at `https://<user>.github.io/<repo>/`.
+`main`. The chart will be live at `[https://<user>.github.io/<repo>/](https://amandeepdharwal23.github.io/Profit-Pool-US/)`.
 
 **Embedding in Webflow (Viability Check):** add an Embed element with:
 
