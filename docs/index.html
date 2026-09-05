@@ -1,0 +1,851 @@
+<title>Profit Pool Explorer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;700;800&display=swap">
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #ffffff;
+    --page:           #f6f5f4;
+    --text-primary:   #111111;
+    --text-secondary: #615d59;
+    --text-muted:     #a39e98;
+    --gridline:       #e6e6e6;
+    --baseline:       #c9c4be;
+    --border:         rgba(17,17,17,0.10);
+    --pos:            #0075de;   /* value creator -- Viability Check's link/brand blue */
+    --neg:            #e34948;   /* value destroyer */
+    --pos-fill:       rgba(0,117,222,0.13);
+    --neg-fill:       rgba(227,73,72,0.14);
+    --flag:           #ea580c;
+    --font-body: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-display: 'Manrope', 'Inter', system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1c1a17;
+      --page:           #121110;
+      --text-primary:   #ffffff;
+      --text-secondary: #c7c2bb;
+      --text-muted:     #8f8a83;
+      --gridline:       #322f2b;
+      --baseline:       #47433d;
+      --border:         rgba(255,255,255,0.10);
+      --pos:            #3d8fe0;
+      --neg:            #e2685f;
+      --pos-fill:       rgba(61,143,224,0.20);
+      --neg-fill:       rgba(226,104,95,0.20);
+      --flag:           #f0883a;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1c1a17;
+    --page:           #121110;
+    --text-primary:   #ffffff;
+    --text-secondary: #c7c2bb;
+    --text-muted:     #8f8a83;
+    --gridline:       #322f2b;
+    --baseline:       #47433d;
+    --border:         rgba(255,255,255,0.10);
+    --pos:            #3d8fe0;
+    --neg:            #e2685f;
+    --pos-fill:       rgba(61,143,224,0.20);
+    --neg-fill:       rgba(226,104,95,0.20);
+    --flag:           #f0883a;
+  }
+
+  * { box-sizing: border-box; }
+  .viz-root {
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    padding: 28px 28px 44px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 12px;
+    border-radius: 9999px;
+    background: var(--pos-fill);
+    color: var(--pos);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .subtitle { font-size: 13.5px; color: var(--text-secondary); margin: 0 0 20px; line-height: 1.6; max-width: 760px; }
+  .subtitle em { font-style: italic; color: var(--text-primary); }
+
+  .panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 20px 20px;
+    margin-bottom: 14px;
+  }
+
+  .controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .controls-row:last-child { margin-bottom: 0; }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    overflow: hidden;
+  }
+  .seg button {
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.active { background: var(--pos); color: #fff; }
+  .seg button:hover:not(.active) { background: var(--gridline); }
+
+  select, input[type=text], input[type=number] {
+    font: inherit;
+    font-size: 12.5px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-primary);
+  }
+  label.inline { font-size: 12.5px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+
+  .spacer { flex: 1 1 auto; }
+
+  button.icon-btn {
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 9999px;
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  button.icon-btn:hover { background: var(--gridline); }
+
+  .year-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .year-pill {
+    font: inherit; font-size: 11.5px; font-weight: 700;
+    padding: 5px 11px; border-radius: 9999px;
+    border: 1px solid var(--border);
+    background: var(--surface-1); color: var(--text-secondary);
+    cursor: pointer; font-variant-numeric: tabular-nums;
+  }
+  .year-pill.active { background: var(--pos); border-color: var(--pos); color: #fff; }
+  .year-pill:hover:not(.active) { background: var(--gridline); }
+  .compare-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
+
+  svg { display: block; width: 100%; height: auto; }
+  .axis text { fill: var(--text-muted); font-size: 10.5px; font-family: var(--font-body); }
+  .axis path, .axis line { stroke: var(--gridline); }
+  .axis.baseline path, .axis.baseline line { stroke: var(--baseline); }
+
+  .bar { stroke: var(--border); stroke-width: 0.5; cursor: pointer; }
+  .bar.flagged { stroke: var(--flag); stroke-width: 1.5; stroke-dasharray: 3,2; }
+  .trend-point { cursor: pointer; stroke: var(--surface-1); stroke-width: 1.5; }
+  .trend-point.flagged { stroke: var(--flag); stroke-width: 2; }
+  .bar-label {
+    font-size: 9.5px;
+    fill: var(--text-secondary);
+    pointer-events: none;
+  }
+
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    box-shadow: 0 8px 24px rgba(17,17,17,0.15);
+    max-width: 240px;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .tooltip .tt-title { font-weight: 700; margin-bottom: 2px; font-family: var(--font-display); }
+  .tooltip .tt-warn { color: var(--flag); font-weight: 600; margin-top: 4px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--text-secondary); align-items: center; }
+  .legend .swatch { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .legend .ln { width: 16px; height: 2px; display: inline-block; }
+
+  .note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    border-top: 1px solid var(--gridline);
+    margin-top: 14px;
+    padding-top: 12px;
+  }
+
+  .footnote {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin: 10px 2px 0;
+  }
+  .footnote a { color: var(--pos); text-decoration: none; }
+  .footnote a:hover { text-decoration: underline; }
+  .note strong { color: var(--text-primary); }
+
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  table.data-table th, table.data-table td {
+    text-align: right;
+    padding: 7px 9px;
+    border-bottom: 1px solid var(--gridline);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  table.data-table th:first-child, table.data-table td:first-child { text-align: left; font-variant-numeric: normal; }
+  table.data-table th { color: var(--text-muted); font-weight: 600; cursor: default; position: sticky; top: 0; background: var(--surface-1); }
+  table.data-table tbody tr:hover { background: var(--page); }
+  .table-wrap { max-height: 480px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+  .flag-tag { color: var(--flag); font-weight: 700; }
+
+  .empty-state { padding: 44px 0; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+  .ms-dropdown { position: relative; }
+  .ms-panel {
+    position: absolute;
+    top: 100%; left: 0;
+    margin-top: 4px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 300px;
+    z-index: 40;
+    box-shadow: 0 8px 24px rgba(17,17,17,0.15);
+    padding: 9px;
+  }
+  .ms-panel input[type=text] { width: 100%; margin-bottom: 7px; }
+  .ms-actions { display: flex; gap: 12px; margin-bottom: 6px; padding: 0 2px; }
+  .ms-actions button {
+    font: inherit; font-size: 11.5px; font-weight: 700;
+    background: none; border: none; color: var(--pos); cursor: pointer; padding: 0;
+  }
+  .ms-actions button:hover { text-decoration: underline; }
+  .ms-list { max-height: 230px; overflow-y: auto; }
+  .ms-list label, .ms-list .ms-item {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 7px; font-size: 12.5px; cursor: pointer; border-radius: 7px;
+  }
+  .ms-list label:hover, .ms-list .ms-item:hover { background: var(--page); }
+  .ms-list .ms-item.selected { background: var(--pos-fill); color: var(--pos); font-weight: 600; }
+  .ms-list input[type=checkbox] { accent-color: var(--pos); }
+  .ms-empty { padding: 8px 4px; font-size: 12px; color: var(--text-muted); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--page); border: 1px solid var(--border); border-radius: 9999px;
+    padding: 3px 10px; font-size: 11.5px; color: var(--text-primary);
+  }
+  .chip button { border: none; background: none; cursor: pointer; color: var(--text-muted); font-size: 13px; line-height: 1; padding: 0; }
+
+  .compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+  .compare-card { background: var(--page); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px 10px; }
+  .compare-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .compare-year { font-family: var(--font-display); font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .compare-stat { font-size: 11.5px; color: var(--text-secondary); text-align: right; }
+  .compare-stat .fig { font-variant-numeric: tabular-nums; font-weight: 700; font-family: var(--font-display); }
+  .compare-stat .fig.pos { color: var(--pos); }
+  .compare-stat .fig.neg { color: var(--neg); }
+</style>
+
+<div class="viz-root" id="app">
+  <span class="eyebrow">Profit pool analysis</span>
+  <h1>US industry profit pools, 2001&ndash;2025</h1>
+  <p class="subtitle">Economic profit by industry = (ROIC &minus; WACC) &times; invested capital &mdash; the profit-pool framework from Michael Mauboussin's <em>Measuring the Moat</em>. Data: NYU Stern / Damodaran industry ROIC-WACC series, compiled by the user.</p>
+
+  <div class="panel">
+    <div class="controls-row">
+      <div class="seg" id="mode-seg">
+        <button data-mode="snapshot" class="active">Snapshot</button>
+        <button data-mode="compare">Compare years</button>
+        <button data-mode="trend">Trend</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="seg" id="view-seg">
+        <button data-view="chart" class="active">Chart</button>
+        <button data-view="table">Table</button>
+      </div>
+    </div>
+
+    <div class="controls-row" id="mode-controls">
+      <!-- populated by JS depending on mode -->
+    </div>
+
+    <div class="controls-row" id="scope-row">
+      <label class="inline">Scope:
+        <select id="scope-select">
+          <option value="all">All industries</option>
+          <option value="topcap">Top N by invested capital</option>
+          <option value="topep">Top N by |economic profit|</option>
+          <option value="search">Pick industries</option>
+        </select>
+      </label>
+      <label class="inline" id="topn-wrap" style="display:none">N:
+        <input type="number" id="topn-input" value="20" min="3" max="100" style="width:60px">
+      </label>
+      <div class="ms-dropdown" id="search-wrap" style="display:none">
+        <button type="button" class="icon-btn" id="ms-toggle">Select industries &#9662;</button>
+        <div class="ms-panel" id="ms-panel" style="display:none">
+          <input type="text" id="ms-filter" placeholder="Filter this list...">
+          <div class="ms-actions">
+            <button type="button" id="ms-select-all">Select all shown</button>
+            <button type="button" id="ms-clear">Clear selection</button>
+          </div>
+          <div class="ms-list" id="ms-list"></div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <label class="inline"><input type="checkbox" id="hide-flagged"> Hide flagged data-quality rows</label>
+    </div>
+    <div class="chip-row" id="chip-row"></div>
+  </div>
+
+  <div class="panel" id="chart-panel">
+    <div id="chart-holder"></div>
+  </div>
+
+  <div class="panel" id="table-panel" style="display:none">
+    <div class="table-wrap"><table class="data-table" id="data-table"></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="legend" id="legend"></div>
+    <div class="note" id="note"></div>
+  </div>
+
+  <p class="footnote">Data sourced from Aswath Damodaran, NYU Stern School of Business &mdash;
+    <a href="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datacurrent.html" target="_blank" rel="noopener">current data</a> and
+    <a href="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/dataarchived.html" target="_blank" rel="noopener">archived data</a>.
+    Used with attribution, not resale, per his site's terms.</p>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(async function () {
+  const DATA_URL = "pp_slim.json";
+  let DATA;
+  try {
+    const res = await fetch(DATA_URL);
+    DATA = await res.json();
+  } catch (e) {
+    document.getElementById("chart-holder").innerHTML =
+      '<div class="empty-state">Could not load pp_slim.json (must be served from the same folder, e.g. via GitHub Pages or a local server -- opening this file directly with file:// will fail).</div>';
+    return;
+  }
+
+  const tooltip = document.getElementById("tooltip");
+  const years = DATA.years;
+  const allIndustries = DATA.industries;
+
+  // Pick a sensible default for Trend mode: the industry label with the most
+  // year-coverage in the (unharmonized) taxonomy, so the first thing a reader
+  // sees is a mostly-unbroken line rather than a heavily gapped one.
+  const coverage = d3.rollup(DATA.records, v => v.length, d => d.i);
+  const defaultTrendIndustry = [...coverage.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+
+  const state = {
+    mode: "snapshot",
+    view: "chart",
+    year: years[years.length - 1],
+    compareYears: [2001, 2008, 2013, 2020, 2025].filter(y => years.includes(y)),
+    trendIndustry: defaultTrendIndustry,
+    scope: "all",
+    topN: 20,
+    selectedIndustries: new Set(),
+    hideFlagged: false,
+  };
+
+  // ---------- data indexing ----------
+  const byYear = d3.group(DATA.records, d => d.y);
+
+  function recordsForYear(y) {
+    let rows = byYear.get(y) || [];
+    if (state.hideFlagged) rows = rows.filter(r => !r.fw && !r.ft);
+    return rows;
+  }
+
+  function applyScope(rows) {
+    if (state.scope === "all") return rows;
+    if (state.scope === "topcap") return [...rows].sort((a, b) => b.cap - a.cap).slice(0, state.topN);
+    if (state.scope === "topep") return [...rows].sort((a, b) => Math.abs(b.ep) - Math.abs(a.ep)).slice(0, state.topN);
+    if (state.scope === "search") {
+      if (state.selectedIndustries.size === 0) return rows;
+      return rows.filter(r => state.selectedIndustries.has(r.i));
+    }
+    return rows;
+  }
+
+  function industryHistory(name) {
+    let rows = DATA.records.filter(r => r.i === name);
+    if (state.hideFlagged) rows = rows.filter(r => !r.fw && !r.ft);
+    return rows.sort((a, b) => a.y - b.y);
+  }
+
+  // ---------- chrome: mode / view toggles ----------
+  document.querySelectorAll("#mode-seg button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#mode-seg button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.mode = btn.dataset.mode;
+      document.getElementById("scope-row").style.display = state.mode === "trend" ? "none" : "";
+      document.getElementById("chip-row").style.display = state.mode === "trend" ? "none" : "";
+      buildModeControls();
+      render();
+    });
+  });
+  document.querySelectorAll("#view-seg button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#view-seg button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.view = btn.dataset.view;
+      document.getElementById("chart-panel").style.display = state.view === "chart" ? "" : "none";
+      document.getElementById("table-panel").style.display = state.view === "table" ? "" : "none";
+      render();
+    });
+  });
+
+  document.getElementById("scope-select").addEventListener("change", (e) => {
+    state.scope = e.target.value;
+    document.getElementById("topn-wrap").style.display = (state.scope === "topcap" || state.scope === "topep") ? "" : "none";
+    document.getElementById("search-wrap").style.display = state.scope === "search" ? "" : "none";
+    render();
+  });
+  document.getElementById("topn-input").addEventListener("input", (e) => {
+    state.topN = Math.max(3, +e.target.value || 20);
+    render();
+  });
+  document.getElementById("hide-flagged").addEventListener("change", (e) => {
+    state.hideFlagged = e.target.checked;
+    render();
+  });
+
+  // ---------- multi-select dropdown (industry picker, scope = search) ----------
+  const msToggle = document.getElementById("ms-toggle");
+  const msPanel = document.getElementById("ms-panel");
+  const msFilter = document.getElementById("ms-filter");
+  const msList = document.getElementById("ms-list");
+
+  function updateMsToggleLabel() {
+    const n = state.selectedIndustries.size;
+    msToggle.innerHTML = (n === 0 ? "Select industries" : `${n} industr${n === 1 ? "y" : "ies"} selected`) + " &#9662;";
+  }
+  function renderMsList() {
+    const q = msFilter.value.trim().toLowerCase();
+    const shown = q ? allIndustries.filter(i => i.toLowerCase().includes(q)) : allIndustries;
+    if (shown.length === 0) {
+      msList.innerHTML = '<div class="ms-empty">No industries match &ldquo;' + msFilter.value + '&rdquo;</div>';
+      return;
+    }
+    msList.innerHTML = shown.map(i => `
+      <label><input type="checkbox" data-i="${i}" ${state.selectedIndustries.has(i) ? "checked" : ""}> ${i}</label>
+    `).join("");
+  }
+  msToggle.addEventListener("click", () => {
+    const opening = msPanel.style.display === "none";
+    msPanel.style.display = opening ? "" : "none";
+    if (opening) { renderMsList(); msFilter.focus(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#search-wrap")) msPanel.style.display = "none";
+    if (!e.target.closest("#trend-industry-wrap")) { const p = document.getElementById("trend-industry-panel"); if (p) p.style.display = "none"; }
+  });
+  msFilter.addEventListener("input", renderMsList);
+  msList.addEventListener("change", (e) => {
+    const i = e.target.dataset.i;
+    if (!i) return;
+    if (e.target.checked) state.selectedIndustries.add(i); else state.selectedIndustries.delete(i);
+    updateMsToggleLabel(); renderChips(); render();
+  });
+  document.getElementById("ms-select-all").addEventListener("click", () => {
+    const q = msFilter.value.trim().toLowerCase();
+    const shown = q ? allIndustries.filter(i => i.toLowerCase().includes(q)) : allIndustries;
+    shown.forEach(i => state.selectedIndustries.add(i));
+    renderMsList(); updateMsToggleLabel(); renderChips(); render();
+  });
+  document.getElementById("ms-clear").addEventListener("click", () => {
+    state.selectedIndustries.clear();
+    renderMsList(); updateMsToggleLabel(); renderChips(); render();
+  });
+  function renderChips() {
+    const row = document.getElementById("chip-row");
+    row.innerHTML = [...state.selectedIndustries].map(i =>
+      `<span class="chip">${i}<button data-i="${i}">&times;</button></span>`
+    ).join("");
+    row.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      state.selectedIndustries.delete(b.dataset.i);
+      renderMsList(); updateMsToggleLabel(); renderChips(); render();
+    }));
+  }
+
+  // ---------- mode-specific controls ----------
+  function buildModeControls() {
+    const c = document.getElementById("mode-controls");
+    if (state.mode === "snapshot") {
+      c.innerHTML = `<label class="inline">Year: <select id="year-select"></select></label>`;
+      const sel = document.getElementById("year-select");
+      years.forEach(y => sel.appendChild(new Option(y, y)));
+      sel.value = state.year;
+      sel.addEventListener("change", () => { state.year = +sel.value; render(); });
+
+    } else if (state.mode === "compare") {
+      c.innerHTML = `
+        <div style="width:100%">
+          <div class="year-pills" id="year-pills"></div>
+          <div class="compare-hint">Pick the years to line up side by side &mdash; 3&ndash;6 reads best.</div>
+        </div>`;
+      const wrap = document.getElementById("year-pills");
+      years.forEach(y => {
+        const btn = document.createElement("button");
+        btn.className = "year-pill" + (state.compareYears.includes(y) ? " active" : "");
+        btn.textContent = y;
+        btn.addEventListener("click", () => {
+          const idx = state.compareYears.indexOf(y);
+          if (idx >= 0) {
+            if (state.compareYears.length > 1) state.compareYears.splice(idx, 1);
+          } else {
+            state.compareYears.push(y);
+          }
+          buildModeControls();
+          render();
+        });
+        wrap.appendChild(btn);
+      });
+
+    } else {
+      c.innerHTML = `
+        <div class="ms-dropdown" id="trend-industry-wrap">
+          <button type="button" class="icon-btn" id="trend-industry-toggle"></button>
+          <div class="ms-panel" id="trend-industry-panel" style="display:none;width:300px">
+            <input type="text" id="trend-industry-filter" placeholder="Filter industries...">
+            <div class="ms-list" id="trend-industry-list"></div>
+          </div>
+        </div>`;
+      const toggle = document.getElementById("trend-industry-toggle");
+      const panel = document.getElementById("trend-industry-panel");
+      const filter = document.getElementById("trend-industry-filter");
+      const list = document.getElementById("trend-industry-list");
+      function setLabel() { toggle.innerHTML = state.trendIndustry + " &#9662;"; }
+      function renderList() {
+        const q = filter.value.trim().toLowerCase();
+        const shown = q ? allIndustries.filter(i => i.toLowerCase().includes(q)) : allIndustries;
+        list.innerHTML = shown.map(i =>
+          `<div class="ms-item${i === state.trendIndustry ? " selected" : ""}" data-i="${i}">${i}</div>`
+        ).join("") || '<div class="ms-empty">No matches</div>';
+      }
+      setLabel();
+      toggle.addEventListener("click", () => {
+        const opening = panel.style.display === "none";
+        panel.style.display = opening ? "" : "none";
+        if (opening) { renderList(); filter.focus(); }
+      });
+      filter.addEventListener("input", renderList);
+      list.addEventListener("click", (e) => {
+        const i = e.target.dataset.i;
+        if (!i) return;
+        state.trendIndustry = i;
+        panel.style.display = "none";
+        setLabel();
+        render();
+      });
+    }
+  }
+
+  // ---------- tooltip ----------
+  function showTooltip(evt, r) {
+    const sign = r.ep >= 0 ? "Value creator" : "Value destroyer";
+    let html = `<div class="tt-title">${r.i}</div>${r.y} &middot; ${sign}<br>
+      ROIC ${r.roic.toFixed(1)}% &minus; WACC ${r.wacc.toFixed(1)}% = <strong>${r.spread >= 0 ? "+" : ""}${r.spread.toFixed(1)}pp</strong><br>
+      Invested capital: $${(r.cap/1000).toFixed(1)}bn<br>
+      Economic profit: ${r.ep >= 0 ? "+" : ""}$${(r.ep/1000).toFixed(2)}bn<br>
+      Firms in sample: ${r.n}`;
+    if (r.fw) html += `<div class="tt-warn">&#9888; negative WACC &mdash; likely data issue</div>`;
+    if (r.ft) html += `<div class="tt-warn">&#9888; thin sample (&lt;3 firms)</div>`;
+    tooltip.innerHTML = html;
+    tooltip.style.opacity = 1;
+    tooltip.style.left = Math.min(evt.clientX + 14, window.innerWidth - 260) + "px";
+    tooltip.style.top = Math.min(evt.clientY + 14, window.innerHeight - 160) + "px";
+  }
+  function hideTooltip() { tooltip.style.opacity = 0; }
+
+  // ---------- legend + note (mode-aware) ----------
+  function renderLegend() {
+    const legend = document.getElementById("legend");
+    const note = document.getElementById("note");
+    const common = `
+      <span class="swatch"><span class="dot" style="background:var(--pos)"></span>Value creator (ROIC &gt; WACC)</span>
+      <span class="swatch"><span class="dot" style="background:var(--neg)"></span>Value destroyer (ROIC &lt; WACC)</span>
+      <span class="swatch"><span class="dot" style="border:1.5px dashed var(--flag); background:transparent"></span>Flagged data-quality row</span>`;
+
+    if (state.mode === "trend") {
+      legend.innerHTML = common + `
+        <span class="swatch"><span class="ln" style="background:var(--text-primary)"></span>ROIC &minus; WACC spread</span>
+        <span class="swatch"><span class="ln" style="background:var(--text-muted); background-image:repeating-linear-gradient(90deg,var(--text-muted) 0 4px,transparent 4px 7px)"></span>ROIC alone (for reference)</span>`;
+    } else {
+      legend.innerHTML = common + `<span>Bar area = economic profit</span>`;
+    }
+
+    const base = `<strong>Reading this chart:</strong> `;
+    if (state.mode === "trend") {
+      note.innerHTML = base + `each point is one year of <strong>${state.trendIndustry}</strong>. The solid line is the ROIC&minus;WACC spread (shaded blue above zero, red below); the dashed line is ROIC on its own, for context on whether a widening spread comes from rising returns or falling capital costs. A break in the line is a year with no data under this exact industry label &mdash; see the taxonomy note below.<br><br>` + dataNote();
+    } else if (state.mode === "compare") {
+      note.innerHTML = base + `each card is one year's profit pool: bar width = invested capital, bar height = the ROIC&minus;WACC spread, so a bar's <em>area</em> is that industry's dollar economic profit &mdash; Mauboussin's construction, repeated across years so you can compare eras directly.<br><br>` + dataNote();
+    } else {
+      note.innerHTML = base + `the y-axis is the ROIC&minus;WACC spread (value creation as a percent); the x-axis is invested capital. Bar width = capital, bar height = spread, so each bar's <em>area</em> is that industry's economic profit.<br><br>` + dataNote();
+    }
+  }
+  function dataNote() {
+    const n = DATA.notes || {};
+    const thin = n.flagged_thin_sample ?? "several";
+    const droppedInd = n.industries_dropped_not_in_2025 ?? 0;
+    const droppedRows = n.rows_dropped_not_in_2025 ?? 0;
+    return `<strong>Data-quality notes:</strong> a "Market" aggregate row exists in the source for only 4 of 25 years and is excluded here as a non-continuous series. One row (2003 Auto Parts) carries a negative WACC, which is very unlikely to be a genuine cost of capital &mdash; it's flagged, not deleted. ${thin} industry-year rows are 1&ndash;2 firm "industries" and are flagged as thin samples. Damodaran's own industry taxonomy was renamed/split/merged several times across 2001&ndash;2025 (e.g. "Bank" &rarr; "Banks (Regional)"), so the Snapshot and Compare views treat each year as its own cross-section, and the Trend view will show a gap wherever the selected label doesn't appear that year. Only industries still reported as of 2025 are kept here &mdash; ${droppedInd} older/retired labels (${droppedRows} rows) that stopped appearing before 2025 were dropped rather than shown as a truncated series.`;
+  }
+
+  // ---------- chart: snapshot / box chart (reused for Snapshot mode and each Compare card) ----------
+  function drawSnapshotChart(holder, year, opts) {
+    const { width = 1120, height = 460, maxLabels = 10 } = opts || {};
+    holder.innerHTML = "";
+    let rows = applyScope(recordsForYear(year));
+    if (rows.length === 0) {
+      holder.innerHTML = '<div class="empty-state">No industries match the current filters for this year.</div>';
+      return;
+    }
+    rows = [...rows].sort((a, b) => b.spread - a.spread);
+
+    let cum = 0;
+    rows.forEach(r => { r.x0 = cum; cum += r.cap; r.x1 = cum; });
+
+    const margin = { top: 14, right: 12, bottom: 30, left: 48 };
+    const iw = width - margin.left - margin.right;
+    const ih = height - margin.top - margin.bottom;
+
+    const x = d3.scaleLinear().domain([0, cum]).range([0, iw]);
+    const yMax = Math.max(2, d3.max(rows, r => Math.abs(r.spread)));
+    const y = d3.scaleLinear().domain([-yMax, yMax]).range([ih, 0]).nice();
+
+    const svg = d3.select(holder).append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    g.append("g").attr("class", "axis")
+      .selectAll("line.grid").data(y.ticks(5)).join("line")
+      .attr("x1", 0).attr("x2", iw).attr("y1", d => y(d)).attr("y2", d => y(d));
+    g.append("g").attr("class", "axis").attr("transform", `translate(0,${ih})`)
+      .call(d3.axisBottom(x).ticks(5).tickFormat(d => "$" + (d/1000).toFixed(0) + "bn"));
+    g.append("g").attr("class", "axis").call(d3.axisLeft(y).ticks(5).tickFormat(d => d + "pp"));
+    g.append("g").attr("class", "axis baseline")
+      .append("line").attr("x1", 0).attr("x2", iw).attr("y1", y(0)).attr("y2", y(0));
+
+    g.selectAll("rect.bar").data(rows, r => r.i).join("rect")
+      .attr("class", r => "bar" + ((r.fw || r.ft) ? " flagged" : ""))
+      .attr("x", r => x(r.x0))
+      .attr("width", r => Math.max(0.4, x(r.x1) - x(r.x0)))
+      .attr("y", r => r.spread >= 0 ? y(r.spread) : y(0))
+      .attr("height", r => Math.max(0.5, Math.abs(y(r.spread) - y(0))))
+      .attr("fill", r => r.ep >= 0 ? "var(--pos-fill)" : "var(--neg-fill)")
+      .style("stroke", r => r.ep >= 0 ? "var(--pos)" : "var(--neg)")
+      .on("mousemove", (evt, r) => showTooltip(evt, r))
+      .on("mouseleave", hideTooltip);
+
+    const CHAR_W = 5.6;
+    const labelData = [...rows].sort((a,b) => b.cap - a.cap).slice(0, maxLabels)
+      .map(r => {
+        const w = x(r.x1) - x(r.x0);
+        const maxChars = Math.floor(w / CHAR_W);
+        let label = r.i;
+        if (maxChars < 4) label = "";
+        else if (label.length > maxChars) label = label.slice(0, Math.max(1, maxChars - 1)) + "…";
+        return { ...r, _label: label };
+      })
+      .filter(r => r._label);
+    g.selectAll("text.bar-label").data(labelData, r => r.i).join("text")
+      .attr("class", "bar-label")
+      .attr("x", r => (x(r.x0) + x(r.x1)) / 2)
+      .attr("y", r => r.spread >= 0 ? y(r.spread) - 4 : y(r.spread) + 12)
+      .attr("text-anchor", "middle")
+      .text(r => r._label);
+  }
+
+  // ---------- chart: compare years (editorial small multiples) ----------
+  function renderCompare() {
+    const holder = document.getElementById("chart-holder");
+    holder.innerHTML = "";
+    const grid = document.createElement("div");
+    grid.className = "compare-grid";
+    holder.appendChild(grid);
+
+    [...state.compareYears].sort((a, b) => a - b).forEach(yr => {
+      const rows = applyScope(recordsForYear(yr));
+      const totalEp = d3.sum(rows, r => r.ep);
+      const nPos = rows.filter(r => r.ep >= 0).length;
+
+      const card = document.createElement("div");
+      card.className = "compare-card";
+      card.innerHTML = `
+        <div class="compare-card-head">
+          <div class="compare-year">${yr}</div>
+          <div class="compare-stat">${nPos}/${rows.length} value-creating<br>
+            <span class="fig ${totalEp >= 0 ? "pos" : "neg"}">${totalEp >= 0 ? "+" : ""}$${(totalEp/1000).toFixed(1)}bn</span> net economic profit</div>
+        </div>
+        <div class="compare-chart"></div>`;
+      grid.appendChild(card);
+      drawSnapshotChart(card.querySelector(".compare-chart"), yr, { width: 520, height: 260, maxLabels: 4 });
+    });
+  }
+
+  // ---------- chart: trend (Exhibit-12 style, one industry across all years) ----------
+  function renderTrend() {
+    const holder = document.getElementById("chart-holder");
+    holder.innerHTML = "";
+    const history = industryHistory(state.trendIndustry);
+    if (history.length === 0) {
+      holder.innerHTML = '<div class="empty-state">No data for this industry under the current filters.</div>';
+      return;
+    }
+    const byY = new Map(history.map(r => [r.y, r]));
+    const points = years.map(y => ({ y, rec: byY.get(y) || null }));
+    const missing = years.length - history.length;
+
+    const width = 1120, height = 460;
+    const margin = { top: 16, right: 20, bottom: 34, left: 52 };
+    const iw = width - margin.left - margin.right;
+    const ih = height - margin.top - margin.bottom;
+
+    const x = d3.scaleLinear().domain(d3.extent(years)).range([0, iw]);
+    const allVals = history.flatMap(r => [r.roic, r.spread]);
+    const vMax = Math.max(5, d3.max(allVals, Math.abs) * 1.1);
+    const y = d3.scaleLinear().domain([-vMax, vMax]).range([ih, 0]).nice();
+
+    const svg = d3.select(holder).append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+    const defs = svg.append("defs");
+    defs.append("clipPath").attr("id", "clip-above").append("rect").attr("x", 0).attr("y", 0).attr("width", iw).attr("height", y(0));
+    defs.append("clipPath").attr("id", "clip-below").append("rect").attr("x", 0).attr("y", y(0)).attr("width", iw).attr("height", ih - y(0));
+
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    g.append("g").attr("class", "axis")
+      .selectAll("line.grid").data(y.ticks(6)).join("line")
+      .attr("x1", 0).attr("x2", iw).attr("y1", d => y(d)).attr("y2", d => y(d));
+    g.append("g").attr("class", "axis").attr("transform", `translate(0,${ih})`)
+      .call(d3.axisBottom(x).ticks(10).tickFormat(d3.format("d")));
+    g.append("g").attr("class", "axis").call(d3.axisLeft(y).ticks(6).tickFormat(d => d + "%"));
+    g.append("g").attr("class", "axis baseline")
+      .append("line").attr("x1", 0).attr("x2", iw).attr("y1", y(0)).attr("y2", y(0));
+
+    const areaGen = d3.area()
+      .defined(d => d.rec)
+      .x(d => x(d.y))
+      .y0(y(0))
+      .y1(d => y(d.rec.spread))
+      .curve(d3.curveMonotoneX);
+    g.append("path").datum(points).attr("d", areaGen).attr("fill", "var(--pos-fill)").attr("clip-path", "url(#clip-above)");
+    g.append("path").datum(points).attr("d", areaGen).attr("fill", "var(--neg-fill)").attr("clip-path", "url(#clip-below)");
+
+    const roicLine = d3.line().defined(d => d.rec).x(d => x(d.y)).y(d => y(d.rec.roic)).curve(d3.curveMonotoneX);
+    g.append("path").datum(points).attr("d", roicLine)
+      .attr("fill", "none").attr("stroke", "var(--text-muted)").attr("stroke-width", 1.5)
+      .attr("stroke-dasharray", "4,3");
+
+    const spreadLine = d3.line().defined(d => d.rec).x(d => x(d.y)).y(d => y(d.rec.spread)).curve(d3.curveMonotoneX);
+    g.append("path").datum(points).attr("d", spreadLine)
+      .attr("fill", "none").attr("stroke", "var(--text-primary)").attr("stroke-width", 2);
+
+    g.selectAll("circle.trend-point").data(history, r => r.y).join("circle")
+      .attr("class", r => "trend-point" + ((r.fw || r.ft) ? " flagged" : ""))
+      .attr("cx", r => x(r.y)).attr("cy", r => y(r.spread)).attr("r", 4)
+      .attr("fill", r => r.ep >= 0 ? "var(--pos)" : "var(--neg)")
+      .on("mousemove", (evt, r) => showTooltip(evt, r))
+      .on("mouseleave", hideTooltip);
+
+    if (missing > 0) {
+      const p = document.createElement("div");
+      p.className = "compare-hint";
+      p.style.marginTop = "8px";
+      p.textContent = `${missing} of ${years.length} years have no row under the exact label "${state.trendIndustry}" (Damodaran renamed/merged buckets over time) -- try the Snapshot view to spot a similarly-named successor.`;
+      holder.appendChild(p);
+    }
+  }
+
+  // ---------- table view (mode-aware) ----------
+  function renderTable() {
+    const table = document.getElementById("data-table");
+    if (state.mode === "trend") {
+      const rows = industryHistory(state.trendIndustry);
+      table.innerHTML = `<thead><tr>
+        <th>Year</th><th>ROIC %</th><th>WACC %</th><th>Spread pp</th>
+        <th>Invested capital ($bn)</th><th>Economic profit ($bn)</th><th>Firms</th><th>Flags</th>
+      </tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td>${r.y}</td><td>${r.roic.toFixed(1)}</td><td>${r.wacc.toFixed(1)}</td>
+        <td>${r.spread >= 0 ? "+" : ""}${r.spread.toFixed(1)}</td>
+        <td>${(r.cap/1000).toFixed(2)}</td><td>${r.ep >= 0 ? "+" : ""}${(r.ep/1000).toFixed(2)}</td>
+        <td>${r.n}</td>
+        <td>${(r.fw ? '<span class="flag-tag">neg-WACC</span> ' : '') + (r.ft ? '<span class="flag-tag">thin-n</span>' : '')}</td>
+      </tr>`).join("")}</tbody>`;
+      return;
+    }
+    const yr = state.mode === "compare" ? state.compareYears[state.compareYears.length - 1] : state.year;
+    const rows = applyScope(recordsForYear(yr)).slice().sort((a,b) => b.ep - a.ep);
+    table.innerHTML = `<thead><tr>
+      <th>Industry</th><th>ROIC %</th><th>WACC %</th><th>Spread pp</th>
+      <th>Invested capital ($bn)</th><th>Economic profit ($bn)</th><th>Firms</th><th>Flags</th>
+    </tr></thead>
+    <tbody>${rows.map(r => `<tr>
+      <td>${r.i}</td><td>${r.roic.toFixed(1)}</td><td>${r.wacc.toFixed(1)}</td>
+      <td>${r.spread >= 0 ? "+" : ""}${r.spread.toFixed(1)}</td>
+      <td>${(r.cap/1000).toFixed(2)}</td><td>${r.ep >= 0 ? "+" : ""}${(r.ep/1000).toFixed(2)}</td>
+      <td>${r.n}</td>
+      <td>${(r.fw ? '<span class="flag-tag">neg-WACC</span> ' : '') + (r.ft ? '<span class="flag-tag">thin-n</span>' : '')}</td>
+    </tr>`).join("")}</tbody>`;
+  }
+
+  function render() {
+    renderLegend();
+    if (state.view === "table") { renderTable(); return; }
+    if (state.mode === "snapshot") drawSnapshotChart(document.getElementById("chart-holder"), state.year, { width: 1120, height: 460, maxLabels: 10 });
+    else if (state.mode === "compare") renderCompare();
+    else renderTrend();
+  }
+
+  buildModeControls();
+  render();
+})();
+</script>
