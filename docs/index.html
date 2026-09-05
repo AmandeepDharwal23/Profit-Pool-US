@@ -310,9 +310,9 @@
   <div class="panel">
     <div class="controls-row">
       <div class="seg" id="mode-seg">
-        <button data-mode="snapshot" class="active">Snapshot</button>
+        <button data-mode="trend" class="active">Trend</button>
         <button data-mode="compare">Compare years</button>
-        <button data-mode="trend">Trend</button>
+        <button data-mode="snapshot">Snapshot</button>
       </div>
       <div class="spacer"></div>
       <div class="seg" id="view-seg">
@@ -431,7 +431,7 @@
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
 
   const state = {
-    mode: "snapshot",
+    mode: "trend",
     view: "chart",
     comparableOnly: true,
     year: allYears[allYears.length - 1],
@@ -1013,6 +1013,8 @@
     else renderTrend();
   }
 
+  document.getElementById("scope-row").style.display = state.mode === "trend" ? "none" : "";
+  document.getElementById("chip-row").style.display = state.mode === "trend" ? "none" : "";
   buildModeControls();
   render();
 })();
