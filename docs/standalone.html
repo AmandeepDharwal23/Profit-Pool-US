@@ -16,6 +16,7 @@
     --pos-fill:       rgba(0,117,222,0.13);
     --neg-fill:       rgba(227,73,72,0.14);
     --flag:           #ea580c;
+    --chip-bg:        #f6f5f4;
     --font-body: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-display: 'Manrope', 'Inter', system-ui, sans-serif;
   }
@@ -38,6 +39,7 @@
     --pos-fill:       rgba(61,143,224,0.20);
     --neg-fill:       rgba(226,104,95,0.20);
     --flag:           #f0883a;
+    --chip-bg:        #232120;
   }
 
   * { box-sizing: border-box; }
@@ -78,21 +80,22 @@
   .blog-link {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     flex-shrink: 0;
     margin-top: 2px;
-    padding: 7px 14px;
+    padding: 9px 18px;
     border-radius: 9999px;
     border: 1px solid var(--border);
-    color: var(--text-secondary);
-    font-size: 12.5px;
+    background: var(--chip-bg);
+    color: var(--text-primary);
+    font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
     text-decoration: none;
-    transition: color 150ms, border-color 150ms;
+    transition: background 150ms, color 150ms;
   }
-  .blog-link:hover { color: var(--pos); border-color: var(--pos); }
-  .blog-link svg { flex-shrink: 0; }
+  .blog-link:hover { background: var(--pos-fill); color: var(--pos); }
+  .blog-link svg { flex-shrink: 0; width: 14px; height: 14px; }
 
   .panel {
     background: var(--surface-1);
@@ -317,8 +320,8 @@
       <p class="subtitle">Economic profit by industry = (ROIC &minus; WACC) &times; invested capital &mdash; the profit-pool framework from Michael Mauboussin's <em>Measuring the Moat</em>. Data: NYU Stern / Damodaran industry ROIC-WACC series, compiled by the user.</p>
     </div>
     <a class="blog-link" href="https://viability-check-d5b4df038b0e07793f660fa.webflow.io/blogs/profit-pool-us-industry-analysis" target="_blank" rel="noopener" title="Read the full write-up">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
       <span>Read the analysis</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     </a>
   </div>
 
