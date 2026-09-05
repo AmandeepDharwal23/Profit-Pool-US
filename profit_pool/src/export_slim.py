@@ -15,10 +15,15 @@ place that needs to know the mapping):
     ep     Economic_Profit_USD_mn
     fw     flag_negative_wacc  (bool)
     ft     flag_thin_sample    (bool, NumFirms < 3)
+    tr     trend_eligible      (bool, industry still reported in the latest year)
 
-Also passes through a small `notes` object (flag counts, how many industries/
-rows the 2025-presence filter dropped) so the chart's data-quality copy can
-read real numbers instead of a hand-typed sentence going stale.
+`tr` is applied per view by the chart, not here: cross-section views (Snapshot,
+Compare) show every industry in the selected year, while the Trend view shows
+only trend-eligible ones so a line doesn't stop dead where a label was renamed.
+
+Also passes through the definitional `regimes` list and a small `notes` object
+(flag counts, trend-ineligible counts) so the chart's copy can read real
+numbers instead of a hand-typed sentence going stale.
 
 Run after clean_data.py:
     cd src && python3 clean_data.py && python3 export_slim.py
@@ -37,6 +42,7 @@ def main():
         "roic": r["ROIC_pct"], "wacc": r["WACC_pct"], "spread": r["ROIC_minus_WACC_pct"],
         "cap": r["Invested_Capital_USD_mn"], "ep": r["Economic_Profit_USD_mn"],
         "fw": r["flag_negative_wacc"], "ft": r["flag_thin_sample"],
+        "tr": r["trend_eligible"],
     } for r in d["records"]]
 
     notes = d.get("notes", {})
@@ -44,11 +50,12 @@ def main():
         "years": d["years"],
         "industries": d["industries"],
         "records": slim,
+        "regimes": d.get("regimes", []),
         "notes": {
             "flagged_negative_wacc": notes.get("flagged_negative_wacc"),
             "flagged_thin_sample": notes.get("flagged_thin_sample"),
-            "industries_dropped_not_in_2025": len(notes.get("industries_dropped_not_in_2025", [])),
-            "rows_dropped_not_in_2025": notes.get("rows_dropped_not_in_2025"),
+            "industries_not_in_latest_year": len(notes.get("industries_not_in_latest_year", [])),
+            "rows_not_trend_eligible": notes.get("rows_not_trend_eligible"),
         },
     }
     with open(OUT, "w") as f:

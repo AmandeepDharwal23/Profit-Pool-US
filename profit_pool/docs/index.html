@@ -160,6 +160,22 @@
   .year-pill.active { background: var(--pos); border-color: var(--pos); color: #fff; }
   .year-pill:hover:not(.active) { background: var(--gridline); }
   .compare-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
+  .compare-hint .warn { color: var(--flag); }
+
+  /* definitional-regime marking */
+  .regime-badge {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .02em;
+    color: var(--text-secondary); background: var(--page);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 3px 9px; white-space: nowrap; cursor: help;
+  }
+  .regime-badge.unreliable { color: var(--flag); border-color: var(--flag); background: transparent; }
+  .year-pill.unreliable { border-style: dashed; color: var(--text-muted); }
+  .year-pill.unreliable.active { color: #fff; }
+  text.regime-label {
+    fill: var(--text-muted); font-size: 10px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; font-family: var(--font-body);
+  }
 
   svg { display: block; width: 100%; height: auto; }
   .axis text { fill: var(--text-muted); font-size: 10.5px; font-family: var(--font-body); }
@@ -283,6 +299,7 @@
   .compare-stat .fig { font-variant-numeric: tabular-nums; font-weight: 700; font-family: var(--font-display); }
   .compare-stat .fig.pos { color: var(--pos); }
   .compare-stat .fig.neg { color: var(--neg); }
+  .compare-card-regime { margin: 2px 0 6px; }
 </style>
 
 <div class="viz-root" id="app">
@@ -335,6 +352,12 @@
       <label class="inline"><input type="checkbox" id="hide-flagged"> Hide flagged data-quality rows</label>
     </div>
     <div class="chip-row" id="chip-row"></div>
+    <div class="controls-row">
+      <label class="inline" title="Damodaran's ROIC definition changed in 2013 and 2014. Off, the chart opens up the full 2001-2025 history and marks each definition change.">
+        <input type="checkbox" id="comparable-only" checked>
+        Comparable years only (<span id="comparable-range"></span>)
+      </label>
+    </div>
   </div>
 
   <div class="panel" id="chart-panel">
@@ -373,20 +396,46 @@
   }
 
   const tooltip = document.getElementById("tooltip");
-  const years = DATA.years;
+  const allYears = DATA.years;
   const allIndustries = DATA.industries;
 
-  // Pick a sensible default for Trend mode: the industry label with the most
-  // year-coverage in the (unharmonized) taxonomy, so the first thing a reader
-  // sees is a mostly-unbroken line rather than a heavily gapped one.
-  const coverage = d3.rollup(DATA.records, v => v.length, d => d.i);
-  const defaultTrendIndustry = [...coverage.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+  // ---------- definitional regimes ----------
+  // Damodaran changed how ROIC and invested capital are computed twice
+  // (2013 leases capitalised, 2014 R&D too), and 2003-2005 alternates between
+  // two aggregation bases. Numbers are comparable within a regime, not across
+  // one, so the chart never draws a line through a boundary.
+  const REGIMES = DATA.regimes || [];
+  const CURRENT_REGIME = REGIMES.filter(r => r.reliable).slice(-1)[0] || { from: allYears[0], to: allYears[allYears.length - 1] };
+
+  function regimeOf(y) {
+    return REGIMES.find(r => y >= r.from && y <= r.to) || null;
+  }
+  function sameRegime(a, b) {
+    const ra = regimeOf(a), rb = regimeOf(b);
+    return ra && rb && ra.from === rb.from;
+  }
+  // Years offered when "comparable window only" is on: the current definition.
+  function activeYears() {
+    return state.comparableOnly
+      ? allYears.filter(y => y >= CURRENT_REGIME.from && y <= CURRENT_REGIME.to)
+      : allYears;
+  }
+
+  // Pick a sensible default for Trend mode: the industry with the most
+  // year-coverage inside the current regime, so the first thing a reader sees
+  // is a mostly-unbroken line rather than a heavily gapped one.
+  const coverage = d3.rollup(
+    DATA.records.filter(r => r.tr && r.y >= CURRENT_REGIME.from),
+    v => v.length, d => d.i);
+  const defaultTrendIndustry = [...coverage.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
 
   const state = {
     mode: "snapshot",
     view: "chart",
-    year: years[years.length - 1],
-    compareYears: [2001, 2008, 2013, 2020, 2025].filter(y => years.includes(y)),
+    comparableOnly: true,
+    year: allYears[allYears.length - 1],
+    compareYears: [2014, 2018, 2020, 2022, 2025],
     trendIndustry: defaultTrendIndustry,
     scope: "all",
     topN: 20,
@@ -397,6 +446,11 @@
   // ---------- data indexing ----------
   const byYear = d3.group(DATA.records, d => d.y);
 
+  // Cross-section views (Snapshot, Compare) compare industries *within* one
+  // year, so they show every industry reported that year. Restricting them to
+  // industries that survive to 2025 would silently drop most of the economy
+  // from the older years -- 2008 would show 38 of 92 industries holding about
+  // a third of that year's invested capital.
   function recordsForYear(y) {
     let rows = byYear.get(y) || [];
     if (state.hideFlagged) rows = rows.filter(r => !r.fw && !r.ft);
@@ -414,10 +468,18 @@
     return rows;
   }
 
+  // The Trend view is the one place that needs cross-year name continuity, so
+  // it uses only industries still reported in the latest year.
   function industryHistory(name) {
     let rows = DATA.records.filter(r => r.i === name);
     if (state.hideFlagged) rows = rows.filter(r => !r.fw && !r.ft);
+    if (state.comparableOnly) rows = rows.filter(r => r.y >= CURRENT_REGIME.from && r.y <= CURRENT_REGIME.to);
     return rows.sort((a, b) => a.y - b.y);
+  }
+
+  function trendIndustries() {
+    const set = new Set(DATA.records.filter(r => r.tr).map(r => r.i));
+    return allIndustries.filter(i => set.has(i));
   }
 
   // ---------- chrome: mode / view toggles ----------
@@ -455,6 +517,19 @@
   });
   document.getElementById("hide-flagged").addEventListener("change", (e) => {
     state.hideFlagged = e.target.checked;
+    render();
+  });
+
+  document.getElementById("comparable-range").textContent =
+    `${CURRENT_REGIME.from}–${CURRENT_REGIME.to}`;
+  document.getElementById("comparable-only").addEventListener("change", (e) => {
+    state.comparableOnly = e.target.checked;
+    const yrs = activeYears();
+    // keep the current selections inside whatever window is now active
+    if (!yrs.includes(state.year)) state.year = yrs[yrs.length - 1];
+    state.compareYears = state.compareYears.filter(y => yrs.includes(y));
+    if (state.compareYears.length === 0) state.compareYears = [yrs[yrs.length - 1]];
+    buildModeControls();
     render();
   });
 
@@ -520,23 +595,32 @@
   function buildModeControls() {
     const c = document.getElementById("mode-controls");
     if (state.mode === "snapshot") {
-      c.innerHTML = `<label class="inline">Year: <select id="year-select"></select></label>`;
+      c.innerHTML = `<label class="inline">Year: <select id="year-select"></select></label>
+        <span class="regime-badge" id="year-regime"></span>`;
       const sel = document.getElementById("year-select");
-      years.forEach(y => sel.appendChild(new Option(y, y)));
+      activeYears().forEach(y => sel.appendChild(new Option(y, y)));
       sel.value = state.year;
-      sel.addEventListener("change", () => { state.year = +sel.value; render(); });
+      sel.addEventListener("change", () => {
+        state.year = +sel.value;
+        paintRegimeBadge(document.getElementById("year-regime"), state.year);
+        render();
+      });
+      paintRegimeBadge(document.getElementById("year-regime"), state.year);
 
     } else if (state.mode === "compare") {
       c.innerHTML = `
         <div style="width:100%">
           <div class="year-pills" id="year-pills"></div>
-          <div class="compare-hint">Pick the years to line up side by side &mdash; 3&ndash;6 reads best.</div>
+          <div class="compare-hint" id="compare-hint"></div>
         </div>`;
       const wrap = document.getElementById("year-pills");
-      years.forEach(y => {
+      activeYears().forEach(y => {
         const btn = document.createElement("button");
-        btn.className = "year-pill" + (state.compareYears.includes(y) ? " active" : "");
+        const reg = regimeOf(y);
+        btn.className = "year-pill" + (state.compareYears.includes(y) ? " active" : "")
+          + (reg && !reg.reliable ? " unreliable" : "");
         btn.textContent = y;
+        if (reg) btn.title = `${y}: ${reg.label}`;
         btn.addEventListener("click", () => {
           const idx = state.compareYears.indexOf(y);
           if (idx >= 0) {
@@ -549,6 +633,16 @@
         });
         wrap.appendChild(btn);
       });
+      // warn if the chosen years straddle a definitional boundary
+      const picked = [...state.compareYears].sort((a, b) => a - b);
+      const regs = [...new Set(picked.map(y => (regimeOf(y) || {}).label).filter(Boolean))];
+      const hint = document.getElementById("compare-hint");
+      if (regs.length > 1) {
+        hint.innerHTML = `<span class="warn">&#9888; These years span more than one definition of ROIC `
+          + `(${regs.join(" / ")}). Bar heights are not comparable across that boundary.</span>`;
+      } else {
+        hint.textContent = "Pick the years to line up side by side — 3–6 reads best.";
+      }
 
     } else {
       c.innerHTML = `
@@ -566,7 +660,8 @@
       function setLabel() { toggle.innerHTML = state.trendIndustry + " &#9662;"; }
       function renderList() {
         const q = filter.value.trim().toLowerCase();
-        const shown = q ? allIndustries.filter(i => i.toLowerCase().includes(q)) : allIndustries;
+        const pool = trendIndustries();
+        const shown = q ? pool.filter(i => i.toLowerCase().includes(q)) : pool;
         list.innerHTML = shown.map(i =>
           `<div class="ms-item${i === state.trendIndustry ? " selected" : ""}" data-i="${i}">${i}</div>`
         ).join("") || '<div class="ms-empty">No matches</div>';
@@ -587,6 +682,17 @@
         render();
       });
     }
+  }
+
+  // ---------- regime badge (cross-section views) ----------
+  function paintRegimeBadge(el, year) {
+    if (!el) return;
+    const reg = regimeOf(year);
+    if (!reg) { el.style.display = "none"; return; }
+    el.style.display = "";
+    el.className = "regime-badge" + (reg.reliable ? "" : " unreliable");
+    el.textContent = reg.reliable ? reg.label : "⚠ " + reg.label;
+    el.title = reg.note || "";
   }
 
   // ---------- tooltip ----------
@@ -635,9 +741,12 @@
   function dataNote() {
     const n = DATA.notes || {};
     const thin = n.flagged_thin_sample ?? "several";
-    const droppedInd = n.industries_dropped_not_in_2025 ?? 0;
-    const droppedRows = n.rows_dropped_not_in_2025 ?? 0;
-    return `<strong>Data-quality notes:</strong> a "Market" aggregate row exists in the source for only 4 of 25 years and is excluded here as a non-continuous series. One row (2003 Auto Parts) carries a negative WACC, which is very unlikely to be a genuine cost of capital &mdash; it's flagged, not deleted. ${thin} industry-year rows are 1&ndash;2 firm "industries" and are flagged as thin samples. Damodaran's own industry taxonomy was renamed/split/merged several times across 2001&ndash;2025 (e.g. "Bank" &rarr; "Banks (Regional)"), so the Snapshot and Compare views treat each year as its own cross-section, and the Trend view will show a gap wherever the selected label doesn't appear that year. Only industries still reported as of 2025 are kept here &mdash; ${droppedInd} older/retired labels (${droppedRows} rows) that stopped appearing before 2025 were dropped rather than shown as a truncated series.`;
+    const retired = n.industries_not_in_latest_year ?? 0;
+    const regimeList = REGIMES.map(r =>
+      `<strong>${r.from}${r.to > r.from ? "&ndash;" + r.to : ""}</strong> ${r.label.toLowerCase()}`
+    ).join("; ");
+    return `<strong>Definitions changed mid-series.</strong> Damodaran revised how ROIC and invested capital are computed twice, and one stretch of the source is internally inconsistent: ${regimeList}. Verified two ways &mdash; the margin column header changes in the source workbook, and the whole cross-section moves at once (in 2004, 89% of industries changed invested capital by more than 50%; in 2013, 51% did). Numbers are comparable inside a regime but not across one, so this chart never draws a line through a boundary, and it opens on the current definition only. Untick "comparable years only" to see the full history with each regime marked.
+    <br><br><strong>Other data-quality notes:</strong> a "Market" aggregate row exists in the source for only 4 of 25 years and is excluded as a non-continuous series. One row (2003 Auto Parts) carries a negative WACC, which is very unlikely to be a genuine cost of capital &mdash; it's flagged, not deleted. ${thin} industry-year rows are 1&ndash;2 firm "industries" and are flagged as thin samples. The taxonomy was renamed and merged repeatedly (e.g. "Bank" &rarr; "Banks (Regional)"), which is why ${retired} labels have no 2025 row: they still appear in Snapshot and Compare, which are single-year cross-sections, but are held out of Trend, which needs a continuous name. Banks, brokerages and non-bank financials sit outside this dataset altogether &mdash; their 2024/25 ROIC is a formula error in the source, and ROIC is a poor measure for a leveraged balance sheet in any case.`;
   }
 
   // ---------- chart: snapshot / box chart (reused for Snapshot mode and each Compare card) ----------
@@ -725,8 +834,10 @@
           <div class="compare-stat">${nPos}/${rows.length} value-creating<br>
             <span class="fig ${totalEp >= 0 ? "pos" : "neg"}">${totalEp >= 0 ? "+" : ""}$${(totalEp/1000).toFixed(1)}bn</span> net economic profit</div>
         </div>
+        <div class="compare-card-regime"><span class="regime-badge"></span></div>
         <div class="compare-chart"></div>`;
       grid.appendChild(card);
+      paintRegimeBadge(card.querySelector(".regime-badge"), yr);
       drawSnapshotChart(card.querySelector(".compare-chart"), yr, { width: 520, height: 260, maxLabels: 4 });
     });
   }
@@ -740,16 +851,17 @@
       holder.innerHTML = '<div class="empty-state">No data for this industry under the current filters.</div>';
       return;
     }
+    const yrs = activeYears();
     const byY = new Map(history.map(r => [r.y, r]));
-    const points = years.map(y => ({ y, rec: byY.get(y) || null }));
-    const missing = years.length - history.length;
+    const points = yrs.map(y => ({ y, rec: byY.get(y) || null }));
+    const missing = yrs.length - points.filter(p => p.rec).length;
 
     const width = 1120, height = 460;
-    const margin = { top: 16, right: 20, bottom: 34, left: 52 };
+    const margin = { top: 30, right: 20, bottom: 34, left: 52 };
     const iw = width - margin.left - margin.right;
     const ih = height - margin.top - margin.bottom;
 
-    const x = d3.scaleLinear().domain(d3.extent(years)).range([0, iw]);
+    const x = d3.scaleLinear().domain(d3.extent(yrs)).range([0, iw]);
     const allVals = history.flatMap(r => [r.roic, r.spread]);
     const vMax = Math.max(5, d3.max(allVals, Math.abs) * 1.1);
     const y = d3.scaleLinear().domain([-vMax, vMax]).range([ih, 0]).nice();
@@ -758,8 +870,45 @@
     const defs = svg.append("defs");
     defs.append("clipPath").attr("id", "clip-above").append("rect").attr("x", 0).attr("y", 0).attr("width", iw).attr("height", y(0));
     defs.append("clipPath").attr("id", "clip-below").append("rect").attr("x", 0).attr("y", y(0)).attr("width", iw).attr("height", ih - y(0));
+    // hatch marks a stretch of years whose numbers can't be trusted
+    const hatch = defs.append("pattern").attr("id", "hatch-unreliable")
+      .attr("width", 6).attr("height", 6).attr("patternUnits", "userSpaceOnUse")
+      .attr("patternTransform", "rotate(45)");
+    hatch.append("rect").attr("width", 6).attr("height", 6).attr("fill", "var(--page)");
+    hatch.append("line").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", 6)
+      .attr("stroke", "var(--gridline)").attr("stroke-width", 2.5);
 
     const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // ---- regime bands: draw before the data so they sit underneath ----
+    const visibleRegimes = REGIMES.filter(r => r.to >= yrs[0] && r.from <= yrs[yrs.length - 1]);
+    if (visibleRegimes.length > 1) {
+      const clampX = v => Math.max(0, Math.min(iw, x(v)));
+      const band = g.append("g").attr("class", "regime-bands");
+      visibleRegimes.forEach((r, idx) => {
+        const x0 = clampX(r.from - 0.5), x1 = clampX(r.to + 0.5);
+        band.append("rect")
+          .attr("x", x0).attr("y", 0).attr("width", Math.max(0, x1 - x0)).attr("height", ih)
+          .attr("fill", r.reliable ? (idx % 2 ? "var(--page)" : "transparent") : "url(#hatch-unreliable)")
+          .attr("opacity", r.reliable ? 0.7 : 0.9);
+        if (idx > 0) {
+          band.append("line").attr("x1", x0).attr("x2", x0).attr("y1", -8).attr("y2", ih)
+            .attr("stroke", "var(--baseline)").attr("stroke-width", 1).attr("stroke-dasharray", "3,3");
+        }
+        // label only if it actually fits the band: full text, else the short
+        // form, else nothing (the band and its tooltip still carry the meaning)
+        const full = r.label.replace("Transition: ", "");
+        const CH = 6.9; // ~px per uppercase char at 10px with letter-spacing
+        const avail = x1 - x0 - 8;
+        const text = full.length * CH <= avail ? full
+          : ((r.short || "").length * CH <= avail ? r.short : null);
+        if (text) {
+          band.append("text").attr("class", "regime-label")
+            .attr("x", (x0 + x1) / 2).attr("y", -12).attr("text-anchor", "middle")
+            .text(text);
+        }
+      });
+    }
 
     g.append("g").attr("class", "axis")
       .selectAll("line.grid").data(y.ticks(6)).join("line")
@@ -770,36 +919,55 @@
     g.append("g").attr("class", "axis baseline")
       .append("line").attr("x1", 0).attr("x2", iw).attr("y1", y(0)).attr("y2", y(0));
 
-    const areaGen = d3.area()
-      .defined(d => d.rec)
-      .x(d => x(d.y))
-      .y0(y(0))
-      .y1(d => y(d.rec.spread))
-      .curve(d3.curveMonotoneX);
-    g.append("path").datum(points).attr("d", areaGen).attr("fill", "var(--pos-fill)").attr("clip-path", "url(#clip-above)");
-    g.append("path").datum(points).attr("d", areaGen).attr("fill", "var(--neg-fill)").attr("clip-path", "url(#clip-below)");
+    // ---- split the series at regime boundaries so no line crosses one ----
+    const segments = [];
+    points.forEach(p => {
+      const last = segments[segments.length - 1];
+      if (last && sameRegime(last[last.length - 1].y, p.y)) last.push(p);
+      else segments.push([p]);
+    });
 
+    const areaGen = d3.area().defined(d => d.rec).x(d => x(d.y)).y0(y(0))
+      .y1(d => y(d.rec.spread)).curve(d3.curveMonotoneX);
     const roicLine = d3.line().defined(d => d.rec).x(d => x(d.y)).y(d => y(d.rec.roic)).curve(d3.curveMonotoneX);
-    g.append("path").datum(points).attr("d", roicLine)
-      .attr("fill", "none").attr("stroke", "var(--text-muted)").attr("stroke-width", 1.5)
-      .attr("stroke-dasharray", "4,3");
-
     const spreadLine = d3.line().defined(d => d.rec).x(d => x(d.y)).y(d => y(d.rec.spread)).curve(d3.curveMonotoneX);
-    g.append("path").datum(points).attr("d", spreadLine)
-      .attr("fill", "none").attr("stroke", "var(--text-primary)").attr("stroke-width", 2);
 
-    g.selectAll("circle.trend-point").data(history, r => r.y).join("circle")
+    segments.forEach(seg => {
+      const reg = regimeOf(seg[0].y);
+      const dim = reg && !reg.reliable ? 0.35 : 1;
+      g.append("path").datum(seg).attr("d", areaGen).attr("fill", "var(--pos-fill)")
+        .attr("opacity", dim).attr("clip-path", "url(#clip-above)");
+      g.append("path").datum(seg).attr("d", areaGen).attr("fill", "var(--neg-fill)")
+        .attr("opacity", dim).attr("clip-path", "url(#clip-below)");
+      g.append("path").datum(seg).attr("d", roicLine)
+        .attr("fill", "none").attr("stroke", "var(--text-muted)").attr("stroke-width", 1.5)
+        .attr("stroke-dasharray", "4,3").attr("opacity", dim);
+      g.append("path").datum(seg).attr("d", spreadLine)
+        .attr("fill", "none").attr("stroke", "var(--text-primary)").attr("stroke-width", 2)
+        .attr("opacity", dim);
+    });
+
+    const shown = points.filter(p => p.rec).map(p => p.rec);
+    g.selectAll("circle.trend-point").data(shown, r => r.y).join("circle")
       .attr("class", r => "trend-point" + ((r.fw || r.ft) ? " flagged" : ""))
       .attr("cx", r => x(r.y)).attr("cy", r => y(r.spread)).attr("r", 4)
       .attr("fill", r => r.ep >= 0 ? "var(--pos)" : "var(--neg)")
+      .attr("opacity", r => { const g2 = regimeOf(r.y); return g2 && !g2.reliable ? 0.4 : 1; })
       .on("mousemove", (evt, r) => showTooltip(evt, r))
       .on("mouseleave", hideTooltip);
 
+    const notes = [];
     if (missing > 0) {
+      notes.push(`${missing} of ${yrs.length} years have no row under the exact label "${state.trendIndustry}" — Damodaran renamed and merged buckets over time.`);
+    }
+    if (visibleRegimes.length > 1) {
+      notes.push(`The line breaks where the source changed how ROIC is measured; levels either side of a break are not comparable. Hatched years use an inconsistent aggregation basis in the source and should not be read at all.`);
+    }
+    if (notes.length) {
       const p = document.createElement("div");
       p.className = "compare-hint";
       p.style.marginTop = "8px";
-      p.textContent = `${missing} of ${years.length} years have no row under the exact label "${state.trendIndustry}" (Damodaran renamed/merged buckets over time) -- try the Snapshot view to spot a similarly-named successor.`;
+      p.textContent = notes.join(" ");
       holder.appendChild(p);
     }
   }

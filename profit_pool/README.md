@@ -15,7 +15,12 @@ Three views, switchable at the top of the chart:
   a few chosen years (2001/2008/2013/2020/2025 by default), so eras sit side
   by side instead of behind a play button.
 - **Trend** — Exhibit-12 style: pick one industry and see its ROIC and
-  ROIC−WACC spread as two lines across all 25 years.
+  ROIC−WACC spread as two lines over time.
+
+All three open on 2014–2025, the window where the source's ROIC definition is
+consistent. Untick "comparable years only" to open up the full 2001–2025
+history with each definitional regime shaded, labelled, and broken apart — see
+data-quality point 8 below for why that matters.
 
 An earlier version used a modern animated bubble chart for the time
 dimension; it was replaced with Compare-years + Trend after review — a
@@ -105,17 +110,34 @@ script (see its docstring) whenever the sheet is updated with a new year.
    single extreme industry-year doesn't compress every other view into a
    sliver near zero. Flagged rows (see point 4) are still visually marked
    wherever they appear.
-7. **Only industries still reported in 2025 are kept — retired labels are
-   dropped entirely, not truncated.** Of the 202 labels in point 5, 112 have
-   no row in 2025 (mostly the pre-2013 name for something that was later
-   renamed, per point 5, plus a few — Bank (Money Center), Banks (Regional),
-   Brokerage & Investment Banking, Financial Svcs. (Non-bank & Insurance) —
-   that dropped out because their 2024/2025 ROIC is a source-file formula
-   error, not a real disappearance). Rather than show these as series that
-   stop partway through the chart, all 749 of their rows across every year
-   are excluded, leaving 90 industries with 1,588 rows. Industries that
-   *are* in 2025 keep every year they have data for, gaps and all — see
-   `clean_data.py`'s step 5 to change the cutoff year or turn this off.
+7. **Industries missing from 2025 are flagged, not deleted — and the flag is
+   applied per view.** Of the 202 labels in point 5, 112 have no 2025 row
+   (mostly a pre-2013 name for something later renamed, plus four financials
+   whose 2024/25 ROIC is a source-file formula error rather than a real
+   disappearance). An earlier version dropped all 749 of their rows outright.
+   That was wrong: it gutted the historical cross-sections, leaving 2008 with
+   38 of that year's 92 industries holding **34%** of its invested capital,
+   while still calling itself "the 2008 profit pool." Cross-sections compare
+   industries *within* one year and never need cross-year name continuity, so
+   Snapshot and Compare now use every industry reported that year. Only Trend
+   applies the flag, because a time series does need a stable name.
+
+8. **The ROIC definition changes twice mid-series, so the chart never draws a
+   line across a break.** Regimes: `2001–2002` EBIT / book capital ·
+   `2003–2005` **inconsistent source basis** · `2006–2012` EBIT / book capital
+   · `2013` **transition, leases capitalised** · `2014–2025` lease + R&D
+   adjusted. Established two ways: the margin column header changes in the
+   source workbook (`After-tax Operating Margin` → `After-tax Lease adj
+   Margin` → `After-tax Lease & R&D adj Margin`), and the cross-section moves
+   as one — in 2004, 89% of industries changed invested capital by more than
+   50%; in 2013, 51% did, with median ROIC shifting 7pp. The chart defaults to
+   the current regime (2014–2025), shades and labels each regime when you open
+   up the full history, hatches the unreliable stretches, splits the Trend line
+   at every boundary, and warns when Compare-years selections straddle one.
+   **2006–2012 is a clean 7-year window and the only usable read on the
+   financial crisis** — which is why the old data is banded rather than
+   discarded. Regimes are defined in `clean_data.py`'s `REGIMES` and flow
+   through to the chart via `pp_slim.json`.
 
 ## Reproducing / updating the data
 
@@ -128,10 +150,11 @@ python3 export_slim.py    # docs/profit_pool_data.json -> docs/pp_slim.json
 
 To add a new year once Damodaran publishes it, append the new rows to
 `data/profit_pool_all_industries_2001-2025.csv` (same columns) and re-run both
-scripts. Since the industry set is filtered to whatever's in the latest year
-(point 7 above), adding a new year will also change which older industries
-get dropped — check `docs/profit_pool_data.json`'s `notes` field after
-re-running to see the new counts.
+scripts. Two things to check afterwards: trend-eligibility is computed against
+whatever the latest year is (point 7), so a new year changes which industries
+Trend will offer — `docs/profit_pool_data.json`'s `notes` field has the counts.
+And if Damodaran changes his ROIC definition again, add a regime to `REGIMES`
+in `clean_data.py` (point 8); the chart picks it up automatically.
 
 To re-verify the CSV against its source spreadsheet, see
 `src/compare_with_source_sheet.py`'s docstring.

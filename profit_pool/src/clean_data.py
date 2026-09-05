@@ -45,6 +45,29 @@ import sys
 SRC = "../data/profit_pool_all_industries_2001-2025.csv"
 OUT = "../docs/profit_pool_data.json"
 
+# Definitional regimes in the source data. Damodaran changed how ROIC and
+# invested capital are computed twice, and the 2003-2005 tabs use an
+# aggregation basis that alternates year to year (capital roughly doubles and
+# halves with firm counts flat). Verified two ways: the margin column header
+# changes in the source workbook, and the cross-section moves as one -- in
+# 2004, 89% of industries changed invested capital by more than 50%; in 2013,
+# 51% did. Within a regime the numbers are comparable; across one they are not.
+REGIMES = [
+    {"from": 2001, "to": 2002, "label": "EBIT / book capital", "short": "EBIT basis",
+     "note": "Returns unadjusted for leases or R&D.", "reliable": True},
+    {"from": 2003, "to": 2005, "label": "Inconsistent source basis", "short": "unreliable",
+     "note": "Invested capital alternates between two bases year to year while firm counts stay flat. Not comparable in either direction.",
+     "reliable": False},
+    {"from": 2006, "to": 2012, "label": "EBIT / book capital", "short": "EBIT basis",
+     "note": "Returns unadjusted for leases or R&D. Internally consistent -- the only clean read on the financial crisis.",
+     "reliable": True},
+    {"from": 2013, "to": 2013, "label": "Transition: leases capitalised", "short": "leases",
+     "note": "Operating leases moved into invested capital. Levels jump against both neighbours.",
+     "reliable": False},
+    {"from": 2014, "to": 2025, "label": "Lease + R&D adjusted", "short": "lease + R&D",
+     "note": "Leases and R&D both capitalised. The current definition.", "reliable": True},
+]
+
 def main():
     df = pd.read_csv(SRC)
 
@@ -73,15 +96,19 @@ def main():
     df = df.dropna(subset=["ROIC_pct", "WACC_pct", "ROIC_minus_WACC_pct", "Invested_Capital_USD_mn", "Economic_Profit_USD_mn"])
     dropped = before - len(df)
 
-    # 5. keep only industries present in the latest year (2025); drop the
-    # rest entirely rather than leaving a truncated series in the chart
+    # 5. MARK (don't drop) industries still reported in the latest year.
+    # This used to delete every row of any industry missing from 2025, which
+    # quietly gutted the historical cross-sections -- a 2008 snapshot was left
+    # with 38 of that year's 92 industries holding only ~34% of its invested
+    # capital. Cross-sections (Snapshot, Compare) compare industries *within* a
+    # single year and never need cross-year name continuity, so they should see
+    # every industry that existed that year. Only the Trend view needs the
+    # restriction, to avoid lines that stop dead where a label was renamed.
+    # The chart applies the flag per view.
     latest_year = df.Year.max()
     industries_in_latest = set(df.loc[df.Year == latest_year, "Industry"].unique())
-    rows_before_2025_filter = len(df)
-    industries_before_2025_filter = df.Industry.nunique()
-    dropped_industries = sorted(set(df.Industry.unique()) - industries_in_latest)
-    df = df[df.Industry.isin(industries_in_latest)].copy()
-    rows_dropped_not_in_2025 = rows_before_2025_filter - len(df)
+    df["trend_eligible"] = df.Industry.isin(industries_in_latest)
+    not_in_latest = sorted(set(df.Industry.unique()) - industries_in_latest)
 
     # 6. flag likely outliers (do not drop)
     df["flag_negative_wacc"] = df.WACC_pct < 0
@@ -99,11 +126,12 @@ def main():
         "industries": industries,
         "records": records,
         "market_benchmark": market_records,
+        "regimes": REGIMES,
         "notes": {
             "rows_after_clean": len(df),
             "rows_dropped_unrecoverable": int(dropped),
-            "industries_dropped_not_in_2025": dropped_industries,
-            "rows_dropped_not_in_2025": int(rows_dropped_not_in_2025),
+            "industries_not_in_latest_year": not_in_latest,
+            "rows_not_trend_eligible": int((~df.trend_eligible).sum()),
             "flagged_negative_wacc": int(df.flag_negative_wacc.sum()),
             "flagged_thin_sample": int(df.flag_thin_sample.sum()),
         },
@@ -113,9 +141,9 @@ def main():
         json.dump(out, f)
 
     print(f"Wrote {OUT}: {len(records)} records, {len(years)} years, {len(industries)} distinct industry labels")
-    print(f"Dropped {dropped} unrecoverable rows before the 2025 filter; "
-          f"dropped {len(dropped_industries)} industries not present in {latest_year} "
-          f"({rows_dropped_not_in_2025} rows, out of {industries_before_2025_filter} industries before this filter)")
+    print(f"Dropped {dropped} unrecoverable rows.")
+    print(f"{len(not_in_latest)} industries have no {latest_year} row and are marked trend-ineligible "
+          f"({(~df.trend_eligible).sum()} rows) -- still shown in cross-section views.")
     print(f"Flagged {out['notes']['flagged_negative_wacc']} negative-WACC rows, "
           f"{out['notes']['flagged_thin_sample']} thin-sample (<3 firm) rows")
 
