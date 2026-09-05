@@ -1,4 +1,4 @@
-<title>Profit Pool Explorer</title>
+<title>Profit Pool Dashboard</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;700;800&display=swap">
 <style>
   .viz-root {
@@ -72,6 +72,27 @@
   }
   .subtitle { font-size: 13.5px; color: var(--text-secondary); margin: 0 0 20px; line-height: 1.6; max-width: 760px; }
   .subtitle em { font-style: italic; color: var(--text-primary); }
+
+  .header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .header-copy { min-width: 0; }
+  .blog-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    padding: 7px 14px;
+    border-radius: 9999px;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: color 150ms, border-color 150ms;
+  }
+  .blog-link:hover { color: var(--pos); border-color: var(--pos); }
+  .blog-link svg { flex-shrink: 0; }
 
   .panel {
     background: var(--surface-1);
@@ -289,9 +310,17 @@
 </style>
 
 <div class="viz-root" id="app">
-  <span class="eyebrow">Profit pool analysis</span>
-  <h1>US industry profit pools, 2001&ndash;2025</h1>
-  <p class="subtitle">Economic profit by industry = (ROIC &minus; WACC) &times; invested capital &mdash; the profit-pool framework from Michael Mauboussin's <em>Measuring the Moat</em>. Data: NYU Stern / Damodaran industry ROIC-WACC series, compiled by the user.</p>
+  <div class="header-row">
+    <div class="header-copy">
+      <span class="eyebrow">Profit pool analysis</span>
+      <h1>US industry profit pools, 2001&ndash;2025</h1>
+      <p class="subtitle">Economic profit by industry = (ROIC &minus; WACC) &times; invested capital &mdash; the profit-pool framework from Michael Mauboussin's <em>Measuring the Moat</em>. Data: NYU Stern / Damodaran industry ROIC-WACC series, compiled by the user.</p>
+    </div>
+    <a class="blog-link" href="https://viability-check-d5b4df038b0e07793f660fa.webflow.io/blogs/profit-pool-us-industry-analysis" target="_blank" rel="noopener" title="Read the full write-up">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+      <span>Read the analysis</span>
+    </a>
+  </div>
 
   <div class="panel">
     <div class="controls-row">
