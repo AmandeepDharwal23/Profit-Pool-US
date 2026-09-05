@@ -4,7 +4,7 @@
   .viz-root {
     color-scheme: light;
     --surface-1:      #ffffff;
-    --page:           #f6f5f4;
+    --page:           #ffffff;
     --text-primary:   #111111;
     --text-secondary: #615d59;
     --text-muted:     #a39e98;
@@ -19,24 +19,10 @@
     --font-body: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-display: 'Manrope', 'Inter', system-ui, sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
-    :root:where(:not([data-theme="light"])) .viz-root {
-      color-scheme: dark;
-      --surface-1:      #1c1a17;
-      --page:           #121110;
-      --text-primary:   #ffffff;
-      --text-secondary: #c7c2bb;
-      --text-muted:     #8f8a83;
-      --gridline:       #322f2b;
-      --baseline:       #47433d;
-      --border:         rgba(255,255,255,0.10);
-      --pos:            #3d8fe0;
-      --neg:            #e2685f;
-      --pos-fill:       rgba(61,143,224,0.20);
-      --neg-fill:       rgba(226,104,95,0.20);
-      --flag:           #f0883a;
-    }
-  }
+  /* This chart always opens in its light theme, regardless of the visitor's
+     system dark-mode setting -- so the page reads consistently wherever it's
+     embedded. Add data-theme="dark" to a wrapping element to opt back into
+     the dark palette below. */
   :root[data-theme="dark"] .viz-root {
     color-scheme: dark;
     --surface-1:      #1c1a17;
@@ -377,9 +363,9 @@
     <a href="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datacurrent.html" target="_blank" rel="noopener">current data</a> and
     <a href="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/dataarchived.html" target="_blank" rel="noopener">archived data</a>.
     Used with attribution, not resale, per his site's terms.</p>
-</div>
 
-<div class="tooltip" id="tooltip"></div>
+  <div class="tooltip" id="tooltip"></div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script>
